@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+:root {
+  --radius: 0.75rem;
+
+  /* 深色主题（始终暗色，不做亮/暗切换） */
+  --background: #0e0f16;
+  --foreground: #e9e7f2;
+  --card: #151722;
+  --card-foreground: #e9e7f2;
+  --popover: #151722;
+  --popover-foreground: #e9e7f2;
+  --primary: #7c6cff;
+  --primary-foreground: #0e0f16;
+  --secondary: #232634;
+  --secondary-foreground: #e9e7f2;
+  --muted: #232634;
+  --muted-foreground: #9aa0b5;
+  --accent: #232634;
+  --accent-foreground: #e9e7f2;
+  --destructive: #ff5c7a;
+  --destructive-foreground: #0e0f16;
+  --border: #262938;
+  --input: #262938;
+  --ring: #7c6cff;
+
+  /* 四大 RPG 属性色 */
+  --attr-int: #56b4e9;
+  --attr-vit: #34d399;
+  --attr-focus: #fbbf24;
+  --attr-cha: #f472b6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-int: var(--attr-int);
+  --color-vit: var(--attr-vit);
+  --color-focus: var(--attr-focus);
+  --color-cha: var(--attr-cha);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans:
+    "Space Grotesk", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI",
+    sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100svh;
+    color: var(--foreground);
+    background-color: var(--background);
+    background-image:
+      radial-gradient(1100px 600px at 82% -10%, rgba(124, 108, 255, 0.09), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(86, 180, 233, 0.06), transparent 55%);
+    background-attachment: fixed;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
