@@ -49,6 +49,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(detail);
   }
 
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -70,6 +71,10 @@ export const api = {
     request<DailyRecord>("/records", {
       method: "POST",
       body: JSON.stringify(record),
+    }),
+  deleteRecord: (recordId: number) =>
+    request<void>(`/records/${recordId}`, {
+      method: "DELETE",
     }),
   achievements: () => request<AchievementsResponse>("/achievements"),
 };
