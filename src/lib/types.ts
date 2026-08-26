@@ -80,3 +80,51 @@ export interface AchievementsResponse {
   unlocked: Achievement[];
   locked: Achievement[];
 }
+
+export interface ReportItem {
+  title: string;
+  detail: string;
+}
+
+export interface MetricStat {
+  key: string;
+  label: string;
+  unit: string;
+  current: number;
+  previous: number;
+  delta: number;
+  delta_pct: number;
+}
+
+export interface WeeklyStats {
+  days_recorded: number;
+  previous_days_recorded: number;
+  total_days: number;
+  streak: number;
+  level: number;
+  experience: number;
+  attributes: Attributes;
+  metrics: MetricStat[];
+}
+
+export interface WeeklyReport {
+  generated_at: string;
+  week_start: string;
+  week_end: string;
+  stats: WeeklyStats;
+  summary: string;
+  highlights: ReportItem[];
+  concerns: ReportItem[];
+  suggestions: ReportItem[];
+  next_goal: string;
+  source: "ai" | "fallback";
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+}

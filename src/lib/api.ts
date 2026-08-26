@@ -1,10 +1,13 @@
 import type {
   AchievementsResponse,
+  ChatMessage,
+  ChatResponse,
   Dashboard,
   DailyRecord,
   RecordInput,
   Token,
   User,
+  WeeklyReport,
 } from "./types";
 
 const TOKEN_KEY = "lifeos_token";
@@ -77,4 +80,10 @@ export const api = {
       method: "DELETE",
     }),
   achievements: () => request<AchievementsResponse>("/achievements"),
+  weeklyReport: () => request<WeeklyReport>("/ai/weekly-report"),
+  chat: (messages: ChatMessage[]) =>
+    request<ChatResponse>("/ai/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages }),
+    }),
 };

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { useAuth } from "./lib/auth";
 import { AchievementsPage } from "./pages/AchievementsPage";
+import { AiCoachPage } from "./pages/AiCoachPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/record" element={<RecordPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/ai" element={<AiCoachPage />} />
         <Route path="/achievements" element={<AchievementsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
