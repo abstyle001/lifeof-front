@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   Clock,
@@ -20,10 +20,19 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
-import type { ChatMessage, ReportItem } from "@/lib/types";
+import type { ChatMessage, ReportItem, WeeklyReport, WeeklyStats } from "@/lib/types";
 
 function shortDate(iso: string) {
   return iso.slice(5);
+}
+
+function Generating() {
+  return (
+    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+      <Sparkles className="h-4 w-4 animate-pulse" />
+      <span className="animate-pulse">AI 正在生成中，请稍候…</span>
+    </div>
+  );
 }
 
 function ReportList({
@@ -55,6 +64,41 @@ function ReportList({
       ) : (
         <p className="text-sm text-muted-foreground">暂无</p>
       )}
+    </Card>
+  );
+}
+
+function MetricsCard({ stats }: { stats: WeeklyStats }) {
+  return (
+    <Card className="p-6">
+      <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        本周 vs 上周
+      </h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {stats.metrics.map((m) => {
+          const improving = (m.key === "stress" ? -m.delta : m.delta) >= 0;
+          return (
+            <div key={m.key} className="rounded-lg border border-border p-3">
+              <div className="text-xs text-muted-foreground">{m.label}</div>
+              <div className="mt-1 font-mono text-lg font-semibold">
+                {m.current}
+                <span className="ml-0.5 text-xs text-muted-foreground">{m.unit}</span>
+              </div>
+              {m.previous ? (
+                <div
+                  className={`mt-0.5 font-mono text-xs ${
+                    improving ? "text-[#34d399]" : "text-[#ff5c7a]"
+                  }`}
+                >
+                  {improving ? "↑" : "↓"} {Math.abs(m.delta_pct)}%
+                </div>
+              ) : (
+                <div className="mt-0.5 text-xs text-muted-foreground">上周无记录</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </Card>
   );
 }
@@ -139,29 +183,33 @@ function ChatPanel() {
 }
 
 export function AiCoachPage() {
-  const { data, error, loading, reload } = useFetch(api.weeklyReport);
+  const { data: statsData, error: statsError, loading: statsLoading } = useFetch(api.weeklyStats);
+  const [report, setReport] = useState<WeeklyReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(true);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-6xl space-y-4">
-        <Skeleton className="h-12 w-64" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-56 w-full" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    let active = true;
+    setReportLoading(true);
+    setReportError(null);
+    api
+      .weeklyReport(refreshTick > 0)
+      .then((r) => {
+        if (active) setReport(r);
+      })
+      .catch((e) => {
+        if (active) setReportError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (active) setReportLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refreshTick]);
 
-  if (error || !data) {
-    return <p className="text-sm text-destructive">{error ?? "加载失败"}</p>;
-  }
-
-  const { stats } = data;
+  const handleRegenerate = () => setRefreshTick((t) => t + 1);
 
   return (
     <Page>
@@ -170,82 +218,112 @@ export function AiCoachPage() {
           <div>
             <h1 className="font-mono text-2xl font-semibold">AI 教练</h1>
             <p className="mt-1 font-mono text-xs text-muted-foreground">
-              {shortDate(data.week_start)} ~ {shortDate(data.week_end)}
+              {statsData
+                ? `${shortDate(statsData.week_start)} ~ ${shortDate(statsData.week_end)}`
+                : ""}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={data.source === "ai" ? "default" : "secondary"}>
-              {data.source === "ai" ? "AI 生成" : "离线分析"}
+            <Badge
+              variant={
+                reportLoading ? "secondary" : report?.source === "ai" ? "default" : "secondary"
+              }
+            >
+              {reportLoading ? "生成中" : report?.source === "ai" ? "AI 生成" : "离线分析"}
             </Badge>
-            <Button variant="outline" size="sm" onClick={reload}>
+            <Button variant="outline" size="sm" onClick={handleRegenerate} disabled={reportLoading}>
               <RefreshCw />
               重新生成
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard
-            label="连续打卡"
-            value={`${stats.streak} 天`}
-            icon={<CalendarDays className="h-4 w-4" />}
-          />
-          <StatCard
-            label="当前等级"
-            value={`LV.${stats.level}`}
-            icon={<Trophy className="h-4 w-4" />}
-          />
-          <StatCard
-            label="本周记录"
-            value={`${stats.days_recorded}/7 天`}
-            icon={<Clock className="h-4 w-4" />}
-          />
-          <StatCard
-            label="累计经验"
-            value={String(stats.experience)}
-            icon={<Sparkles className="h-4 w-4" />}
-          />
-        </div>
-
-        <Card className="p-6">
-          <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            本周总结
-          </h2>
-          <p className="text-sm leading-relaxed text-foreground">{data.summary}</p>
-        </Card>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <ReportList
-            title="亮点"
-            items={data.highlights}
-            icon={<TrendingUp className="h-4 w-4" />}
-            accent="#34d399"
-          />
-          <ReportList
-            title="问题"
-            items={data.concerns}
-            icon={<TrendingDown className="h-4 w-4" />}
-            accent="var(--destructive)"
-          />
-          <ReportList
-            title="建议"
-            items={data.suggestions}
-            icon={<Lightbulb className="h-4 w-4" />}
-            accent="var(--primary)"
-          />
-        </div>
-
-        {data.next_goal && (
-          <Card className="p-6">
-            <div className="mb-2 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              <span style={{ color: "var(--primary)" }}>
-                <Target className="h-4 w-4" />
-              </span>
-              下周目标
+        {statsLoading ? (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : statsData ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <StatCard
+                label="连续打卡"
+                value={`${statsData.stats.streak} 天`}
+                icon={<CalendarDays className="h-4 w-4" />}
+              />
+              <StatCard
+                label="当前等级"
+                value={`LV.${statsData.stats.level}`}
+                icon={<Trophy className="h-4 w-4" />}
+              />
+              <StatCard
+                label="本周记录"
+                value={`${statsData.stats.days_recorded}/7 天`}
+                icon={<Clock className="h-4 w-4" />}
+              />
+              <StatCard
+                label="累计经验"
+                value={String(statsData.stats.experience)}
+                icon={<Sparkles className="h-4 w-4" />}
+              />
             </div>
-            <p className="font-medium">{data.next_goal}</p>
-          </Card>
+            <MetricsCard stats={statsData.stats} />
+          </>
+        ) : (
+          <p className="text-sm text-destructive">{statsError ?? "加载失败"}</p>
         )}
+
+        {reportLoading ? (
+          <Card className="p-6">
+            <Generating />
+          </Card>
+        ) : reportError ? (
+          <p className="text-sm text-destructive">{reportError}</p>
+        ) : report ? (
+          <>
+            <Card className="p-6">
+              <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                本周总结
+              </h2>
+              <p className="text-sm leading-relaxed text-foreground">{report.summary}</p>
+            </Card>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <ReportList
+                title="亮点"
+                items={report.highlights}
+                icon={<TrendingUp className="h-4 w-4" />}
+                accent="#34d399"
+              />
+              <ReportList
+                title="问题"
+                items={report.concerns}
+                icon={<TrendingDown className="h-4 w-4" />}
+                accent="var(--destructive)"
+              />
+              <ReportList
+                title="建议"
+                items={report.suggestions}
+                icon={<Lightbulb className="h-4 w-4" />}
+                accent="var(--primary)"
+              />
+            </div>
+
+            {report.next_goal && (
+              <Card className="p-6">
+                <div className="mb-2 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  <span style={{ color: "var(--primary)" }}>
+                    <Target className="h-4 w-4" />
+                  </span>
+                  下周目标
+                </div>
+                <p className="font-medium">{report.next_goal}</p>
+              </Card>
+            )}
+          </>
+        ) : null}
 
         <ChatPanel />
       </div>

@@ -125,6 +125,12 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface WeeklyStatsResponse {
+  week_start: string;
+  week_end: string;
+  stats: WeeklyStats;
+}
+
 export interface ChatResponse {
   reply: string;
 }

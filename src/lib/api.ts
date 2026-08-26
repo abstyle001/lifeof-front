@@ -8,6 +8,7 @@ import type {
   Token,
   User,
   WeeklyReport,
+  WeeklyStatsResponse,
 } from "./types";
 
 const TOKEN_KEY = "lifeos_token";
@@ -80,7 +81,9 @@ export const api = {
       method: "DELETE",
     }),
   achievements: () => request<AchievementsResponse>("/achievements"),
-  weeklyReport: () => request<WeeklyReport>("/ai/weekly-report"),
+  weeklyStats: () => request<WeeklyStatsResponse>("/ai/weekly-stats"),
+  weeklyReport: (refresh = false) =>
+    request<WeeklyReport>(`/ai/weekly-report${refresh ? "?refresh=true" : ""}`),
   chat: (messages: ChatMessage[]) =>
     request<ChatResponse>("/ai/chat", {
       method: "POST",
