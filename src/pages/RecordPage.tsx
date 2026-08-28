@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { DailyRecord, RecordInput } from "@/lib/types";
+import type { DailyRecord, RecordInput, SocialInput, SocialInteraction } from "@/lib/types";
 
 function todayStr() {
   const d = new Date();
@@ -40,6 +40,9 @@ interface FormState {
   tasks_completed: string;
   tasks_total: string;
   note: string;
+  social_interactions: string;
+  social_time: string;
+  social_quality: number;
 }
 
 function emptyForm(date = todayStr()): FormState {
@@ -58,6 +61,9 @@ function emptyForm(date = todayStr()): FormState {
     tasks_completed: "0",
     tasks_total: "5",
     note: "",
+    social_interactions: "0",
+    social_time: "0",
+    social_quality: 7,
   };
 }
 
@@ -77,6 +83,19 @@ function recordToForm(record: DailyRecord): FormState {
     tasks_completed: String(record.tasks_completed),
     tasks_total: String(record.tasks_total),
     note: record.note ?? "",
+    social_interactions: "0",
+    social_time: "0",
+    social_quality: 7,
+  };
+}
+
+function withSocial(form: FormState, social?: SocialInteraction): FormState {
+  if (!social) return form;
+  return {
+    ...form,
+    social_interactions: String(social.interactions),
+    social_time: String(social.social_time),
+    social_quality: social.quality,
   };
 }
 
@@ -150,6 +169,7 @@ function ScoreField({
 export function RecordPage() {
   const [form, setForm] = useState<FormState>(() => emptyForm());
   const [records, setRecords] = useState<DailyRecord[] | null>(null);
+  const [socials, setSocials] = useState<SocialInteraction[] | null>(null);
   const [recordsError, setRecordsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -160,11 +180,11 @@ export function RecordPage() {
 
   useEffect(() => {
     let active = true;
-    api
-      .records()
-      .then((data) => {
+    Promise.all([api.records(), api.social()])
+      .then(([recordData, socialData]) => {
         if (!active) return;
-        setRecords(data);
+        setRecords(recordData);
+        setSocials(socialData);
         setRecordsError(null);
       })
       .catch((err: unknown) => {
@@ -176,11 +196,12 @@ export function RecordPage() {
   }, []);
 
   useEffect(() => {
-    if (!records || initialRecordLoaded.current) return;
+    if (!records || !socials || initialRecordLoaded.current) return;
     initialRecordLoaded.current = true;
     const existing = records.find((record) => record.date === form.date);
-    if (existing) setForm(recordToForm(existing));
-  }, [records, form.date]);
+    const social = socials.find((item) => item.date === form.date);
+    setForm(withSocial(existing ? recordToForm(existing) : emptyForm(form.date), social));
+  }, [records, socials, form.date]);
 
   const sortedRecords = useMemo(
     () => [...(records ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
@@ -196,7 +217,8 @@ export function RecordPage() {
 
   function selectDate(date: string, scrollToForm = false) {
     const existing = records?.find((record) => record.date === date);
-    setForm(existing ? recordToForm(existing) : emptyForm(date));
+    const social = socials?.find((item) => item.date === date);
+    setForm(withSocial(existing ? recordToForm(existing) : emptyForm(date), social));
     setSaved(false);
     setError(null);
     if (scrollToForm) {
@@ -237,15 +259,28 @@ export function RecordPage() {
       tasks_total: tasksTotal,
       note: form.note.trim() || null,
     };
+    const socialPayload: SocialInput = {
+      date: form.date,
+      interactions: Number(form.social_interactions) || 0,
+      social_time: Number(form.social_time) || 0,
+      quality: form.social_quality,
+    };
     try {
-      const savedRecord = await api.upsertRecord(payload);
+      const [savedRecord, savedSocial] = await Promise.all([
+        api.upsertRecord(payload),
+        api.upsertSocial(socialPayload),
+      ]);
       setRecords((current) => {
         const withoutSavedDate = (current ?? []).filter(
           (record) => record.date !== savedRecord.date,
         );
         return [...withoutSavedDate, savedRecord];
       });
-      setForm(recordToForm(savedRecord));
+      setSocials((current) => {
+        const withoutSavedDate = (current ?? []).filter((item) => item.date !== savedSocial.date);
+        return [...withoutSavedDate, savedSocial];
+      });
+      setForm(withSocial(recordToForm(savedRecord), savedSocial));
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存失败");
@@ -266,6 +301,17 @@ export function RecordPage() {
     try {
       await api.deleteRecord(record.id);
       setRecords((current) => (current ?? []).filter((item) => item.id !== record.id));
+
+      const social = socials?.find((item) => item.date === record.date);
+      if (social) {
+        try {
+          await api.deleteSocial(social.id);
+          setSocials((current) => (current ?? []).filter((item) => item.id !== social.id));
+        } catch {
+          // 社交记录删除失败不阻断主流程
+        }
+      }
+
       if (form.date === record.date) setForm(emptyForm(record.date));
       setSaved(false);
     } catch (err) {
@@ -406,6 +452,34 @@ export function RecordPage() {
                   value={form.energy}
                   onChange={(v) => set("energy", v)}
                   color="#56b4e9"
+                />
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                社交
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <NumberField
+                  label="互动次数"
+                  unit="次"
+                  value={form.social_interactions}
+                  onChange={(v) => set("social_interactions", v)}
+                />
+                <NumberField
+                  label="社交时长"
+                  unit="小时"
+                  value={form.social_time}
+                  onChange={(v) => set("social_time", v)}
+                  step="0.5"
+                  max="24"
+                />
+                <ScoreField
+                  label="社交质量"
+                  value={form.social_quality}
+                  onChange={(v) => set("social_quality", v)}
+                  color="#f472b6"
                 />
               </div>
             </Card>

@@ -9,13 +9,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { Target } from "lucide-react";
 import { Page } from "@/components/layout/Page";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
-import type { TrendPoint } from "@/lib/types";
+import type { MetricStat, ReportItem } from "@/lib/types";
 
 const tooltipStyle = {
   background: "var(--card)",
@@ -29,41 +30,129 @@ function shortDate(iso: string) {
   return iso.slice(5);
 }
 
-interface Delta {
-  label: string;
-  before: number;
-  after: number;
+function ReportList({
+  title,
+  items,
+  accent,
+}: {
+  title: string;
+  items: ReportItem[];
+  accent: string;
+}) {
+  return (
+    <div>
+      <div
+        className="mb-3 font-mono text-xs uppercase tracking-wider text-muted-foreground"
+        style={{ color: accent }}
+      >
+        {title}
+      </div>
+      {items.length ? (
+        <ul className="space-y-3">
+          {items.map((item) => (
+            <li key={item.title}>
+              <div className="font-medium">{item.title}</div>
+              <div className="mt-0.5 text-sm text-muted-foreground">{item.detail}</div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">暂无</p>
+      )}
+    </div>
+  );
 }
 
-interface Report {
-  improved?: Delta;
-  declined?: Delta;
+function MetricDelta({ metric }: { metric: MetricStat }) {
+  const improving = (metric.key === "stress" ? -metric.delta : metric.delta) >= 0;
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <div className="text-xs text-muted-foreground">{metric.label}</div>
+      <div className="mt-1 font-mono text-lg font-semibold">
+        {metric.current}
+        <span className="ml-0.5 text-xs text-muted-foreground">{metric.unit}</span>
+      </div>
+      {metric.previous ? (
+        <div
+          className={`mt-0.5 font-mono text-xs ${improving ? "text-[#34d399]" : "text-[#ff5c7a]"}`}
+        >
+          {improving ? "↑" : "↓"} {Math.abs(metric.delta_pct)}%
+        </div>
+      ) : (
+        <div className="mt-0.5 text-xs text-muted-foreground">上月无记录</div>
+      )}
+    </div>
+  );
 }
 
-function pctChange(d: Delta) {
-  return d.before === 0 ? 0 : ((d.after - d.before) / d.before) * 100;
-}
+function MonthlyReportCard() {
+  const { data: report, error, loading } = useFetch(api.monthlyReport);
 
-function buildReport(trend: TrendPoint[]): Report | null {
-  if (trend.length < 14) return null;
-  const mid = Math.floor(trend.length / 2);
-  const first = trend.slice(0, mid);
-  const second = trend.slice(mid);
-  const avg = (arr: TrendPoint[], key: "study_time" | "sleep" | "exercise") =>
-    arr.reduce((s, t) => s + t[key], 0) / arr.length;
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <div className="space-y-4">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      </Card>
+    );
+  }
+  if (error || !report) {
+    return <p className="text-sm text-destructive">{error ?? "加载失败"}</p>;
+  }
 
-  const deltas: Delta[] = [
-    { label: "学习时间", before: avg(first, "study_time"), after: avg(second, "study_time") },
-    { label: "睡眠时长", before: avg(first, "sleep"), after: avg(second, "sleep") },
-    { label: "运动时长", before: avg(first, "exercise"), after: avg(second, "exercise") },
-  ];
-  const improved = [...deltas]
-    .filter((d) => d.after > d.before)
-    .sort((a, b) => pctChange(b) - pctChange(a))[0];
-  const declined = [...deltas]
-    .filter((d) => d.after < d.before)
-    .sort((a, b) => pctChange(a) - pctChange(b))[0];
-  return { improved, declined };
+  return (
+    <div className="space-y-4">
+      <Card className="p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            月度报告（{shortDate(report.month_start)} ~ {shortDate(report.month_end)}）
+          </h2>
+          <Badge variant={report.source === "ai" ? "default" : "secondary"}>
+            {report.source === "ai" ? "AI 生成" : "离线分析"}
+          </Badge>
+        </div>
+        <p className="text-sm leading-relaxed text-foreground">{report.summary}</p>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+          本月 vs 上月
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {report.stats.metrics.map((m) => (
+            <MetricDelta key={m.key} metric={m} />
+          ))}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="p-6">
+          <ReportList title="最大进步" items={report.highlights} accent="#34d399" />
+        </Card>
+        <Card className="p-6">
+          <ReportList title="下降领域" items={report.concerns} accent="var(--destructive)" />
+        </Card>
+        <Card className="p-6">
+          <ReportList title="改进建议" items={report.suggestions} accent="var(--primary)" />
+        </Card>
+      </div>
+
+      {report.next_goal && (
+        <Card className="p-6">
+          <div className="mb-2 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            <span style={{ color: "var(--primary)" }}>
+              <Target className="h-4 w-4" />
+            </span>
+            下月目标
+          </div>
+          <p className="font-medium">{report.next_goal}</p>
+        </Card>
+      )}
+    </div>
+  );
 }
 
 export function AnalyticsPage() {
@@ -95,8 +184,6 @@ export function AnalyticsPage() {
   if (error || !data) {
     return <p className="text-sm text-destructive">{error ?? "加载失败"}</p>;
   }
-
-  const report = buildReport(data.trend);
 
   return (
     <Page>
@@ -142,53 +229,7 @@ export function AnalyticsPage() {
           </ResponsiveContainer>
         </Card>
 
-        <Card className="p-6">
-          <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            月度报告
-          </h2>
-          {report ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {report.improved && (
-                <div className="flex items-start gap-3 rounded-lg border border-border p-4">
-                  <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-[#34d399]" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">最大进步领域</div>
-                    <div className="font-medium">{report.improved.label}</div>
-                    <div className="font-mono text-sm text-[#34d399]">
-                      +{pctChange(report.improved).toFixed(0)}%
-                    </div>
-                  </div>
-                </div>
-              )}
-              {report.declined && (
-                <div className="flex items-start gap-3 rounded-lg border border-border p-4">
-                  <TrendingDown className="mt-0.5 h-5 w-5 shrink-0 text-[#ff5c7a]" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">下降领域</div>
-                    <div className="font-medium">{report.declined.label}</div>
-                    <div className="font-mono text-sm text-[#ff5c7a]">
-                      {pctChange(report.declined).toFixed(0)}%
-                    </div>
-                  </div>
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground sm:col-span-2">
-                {report.improved && report.declined
-                  ? `建议：优先改善「${report.declined.label}」，保持「${report.improved.label}」的良好势头。`
-                  : report.declined
-                    ? `建议：优先改善「${report.declined.label}」。`
-                    : report.improved
-                      ? `继续保持「${report.improved.label}」的良好势头。`
-                      : "各项指标保持平稳，继续保持。"}
-                更多 AI 分析将在后续版本上线。
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              数据还不够，记录满两周后可生成月度报告。
-            </p>
-          )}
-        </Card>
+        <MonthlyReportCard />
       </div>
     </Page>
   );

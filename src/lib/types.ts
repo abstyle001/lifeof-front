@@ -34,6 +34,16 @@ export type RecordInput = Omit<DailyRecord, "id" | "note"> & {
   note?: string | null;
 };
 
+export interface SocialInteraction {
+  id: number;
+  date: string;
+  interactions: number;
+  social_time: number;
+  quality: number;
+}
+
+export type SocialInput = Omit<SocialInteraction, "id">;
+
 export type AttributeKey = "INT" | "VIT" | "FOCUS" | "CHA";
 
 export interface Attributes {
@@ -133,4 +143,23 @@ export interface WeeklyStatsResponse {
 
 export interface ChatResponse {
   reply: string;
+}
+
+export interface MonthlyStatsResponse {
+  month_start: string;
+  month_end: string;
+  stats: WeeklyStats;
+}
+
+export interface MonthlyReport {
+  generated_at: string;
+  month_start: string;
+  month_end: string;
+  stats: WeeklyStats;
+  summary: string;
+  highlights: ReportItem[];
+  concerns: ReportItem[];
+  suggestions: ReportItem[];
+  next_goal: string;
+  source: "ai" | "fallback";
 }

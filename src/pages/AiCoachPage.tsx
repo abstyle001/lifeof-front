@@ -105,27 +105,67 @@ function MetricsCard({ stats }: { stats: WeeklyStats }) {
 
 function ChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    api
+      .chatHistory()
+      .then((history) => {
+        if (active) setMessages(history);
+      })
+      .catch(() => {
+        // 历史加载失败不阻塞使用，静默忽略
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   async function handleSend() {
     const text = input.trim();
     if (!text || sending) return;
-    const next: ChatMessage[] = [...messages, { role: "user", content: text }];
-    setMessages(next);
     setInput("");
     setSending(true);
     setError(null);
+    setMessages((cur) => [
+      ...cur,
+      { role: "user", content: text },
+      { role: "assistant", content: "" },
+    ]);
     try {
-      const res = await api.chat(next);
-      setMessages([...next, { role: "assistant", content: res.reply }]);
+      await api.chatStream(text, (delta) => {
+        setMessages((cur) => {
+          const copy = [...cur];
+          const last = copy[copy.length - 1];
+          copy[copy.length - 1] =
+            last && last.role === "assistant"
+              ? { role: "assistant", content: last.content + delta }
+              : { role: "assistant", content: delta };
+          return copy;
+        });
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setMessages((cur) => {
+        const copy = [...cur];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant" && last.content === "") copy.pop();
+        return copy;
+      });
     } finally {
       setSending(false);
     }
   }
+
+  const lastMessage = messages[messages.length - 1];
+  const showThinking = sending && lastMessage?.role === "assistant" && lastMessage.content === "";
 
   return (
     <Card className="flex h-[32rem] flex-col">
@@ -135,25 +175,30 @@ function ChatPanel() {
         </h2>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-        {messages.length === 0 && !error && (
+        {historyLoading && messages.length === 0 ? (
+          <p className="text-sm text-muted-foreground">正在加载对话历史…</p>
+        ) : messages.length === 0 && !error ? (
           <p className="text-sm text-muted-foreground">
             你好，我是你的 AI
             教练。可以问我关于睡眠、学习、运动或情绪的问题，我会根据你的数据给出建议。
           </p>
-        )}
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={
-              m.role === "user"
-                ? "ml-auto max-w-[80%] whitespace-pre-wrap rounded-lg bg-primary/10 px-3 py-2 text-sm"
-                : "mr-auto max-w-[80%] whitespace-pre-wrap rounded-lg bg-secondary px-3 py-2 text-sm"
-            }
-          >
-            {m.content}
-          </div>
-        ))}
-        {sending && (
+        ) : null}
+        {messages.map((m, i) => {
+          if (m.role === "assistant" && m.content === "") return null;
+          return (
+            <div
+              key={i}
+              className={
+                m.role === "user"
+                  ? "ml-auto max-w-[80%] whitespace-pre-wrap rounded-lg bg-primary/10 px-3 py-2 text-sm"
+                  : "mr-auto max-w-[80%] whitespace-pre-wrap rounded-lg bg-secondary px-3 py-2 text-sm"
+              }
+            >
+              {m.content}
+            </div>
+          );
+        })}
+        {showThinking && (
           <div className="mr-auto max-w-[80%] rounded-lg bg-secondary px-3 py-2 text-sm text-muted-foreground">
             思考中…
           </div>
