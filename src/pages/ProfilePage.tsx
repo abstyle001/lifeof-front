@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AvatarUploader } from "@/components/profile/AvatarUploader";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { User, UserUpdateInput } from "@/lib/types";
 import { useFetch } from "@/lib/useFetch";
@@ -109,8 +110,9 @@ function EditProfileDialog({
     setSaving(true);
     setError(null);
     try {
-      await api.updateMe(payload);
+      const updated = await api.updateMe(payload);
       setOpen(false);
+      onUserUpdated(updated);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -209,7 +211,7 @@ function EditProfileDialog({
 
 export function ProfilePage() {
   const { data, error, loading, reload } = useFetch(api.dashboard);
-  const [liveUser, setLiveUser] = useState<User | null>(null);
+  const { user: authUser, setUser } = useAuth();
 
   if (loading) {
     return (
@@ -224,7 +226,7 @@ export function ProfilePage() {
     return <p className="text-sm text-destructive">{error ?? "加载失败"}</p>;
   }
 
-  const user = liveUser ?? data.user;
+  const user = authUser ?? data.user;
   const progress = xpProgress(user.experience, user.level);
 
   const rows = [
@@ -250,7 +252,7 @@ export function ProfilePage() {
             </div>
             <Progress value={progress} className="mt-3" />
           </div>
-          <EditProfileDialog user={user} onSaved={reload} onUserUpdated={setLiveUser} />
+          <EditProfileDialog user={user} onSaved={reload} onUserUpdated={setUser} />
         </Card>
 
         <Card className="p-6">

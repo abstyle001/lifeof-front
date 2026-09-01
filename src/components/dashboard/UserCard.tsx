@@ -22,9 +22,17 @@ export function UserCard({ user, streak }: { user: User; streak: number }) {
     <Card className="relative overflow-hidden p-6">
       <div className="flex items-start justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[#56b4e9] font-mono text-2xl font-bold text-primary-foreground">
-            {user.username[0]?.toUpperCase() ?? "?"}
-          </div>
+          {user.avatar ? (
+            <img
+              src={user.avatar}
+              alt={user.username}
+              className="h-16 w-16 rounded-2xl object-cover"
+            />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[#56b4e9] font-mono text-2xl font-bold text-primary-foreground">
+              {user.username[0]?.toUpperCase() ?? "?"}
+            </div>
+          )}
           <div>
             <div className="text-lg font-semibold">{user.username}</div>
             <div className="font-mono text-sm text-muted-foreground">
