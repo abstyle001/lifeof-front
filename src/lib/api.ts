@@ -4,12 +4,23 @@ import type {
   ChatResponse,
   Dashboard,
   DailyRecord,
+  ExportData,
+  Goal,
+  GoalInput,
+  GoalUpdate,
+  ImportData,
+  ImportResult,
   MonthlyReport,
   RecordInput,
+  RecordSave,
   SocialInput,
   SocialInteraction,
+  Task,
+  TaskInput,
+  TaskUpdate,
   Token,
   User,
+  UserUpdateInput,
   WeeklyReport,
   WeeklyStatsResponse,
 } from "./types";
@@ -57,6 +68,31 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+async function requestForm<T>(path: string, body: FormData, method: "POST" | "DELETE"): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`/api${path}`, { method, headers, body });
+
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("未登录或登录已过期");
+  }
+  if (!res.ok) {
+    let detail = `请求失败（${res.status}）`;
+    try {
+      const payload = (await res.json()) as { detail?: unknown };
+      if (typeof payload.detail === "string") detail = payload.detail;
+    } catch {
+      // 响应体非 JSON 时忽略
+    }
+    throw new Error(detail);
+  }
   return res.json() as Promise<T>;
 }
 
@@ -135,7 +171,7 @@ export const api = {
   dashboard: () => request<Dashboard>("/dashboard"),
   records: () => request<DailyRecord[]>("/records"),
   upsertRecord: (record: RecordInput) =>
-    request<DailyRecord>("/records", {
+    request<RecordSave>("/records", {
       method: "POST",
       body: JSON.stringify(record),
     }),
@@ -164,5 +200,46 @@ export const api = {
   deleteSocial: (socialId: number) =>
     request<void>(`/social/${socialId}`, {
       method: "DELETE",
+    }),
+  updateMe: (update: UserUpdateInput) =>
+    request<User>("/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(update),
+    }),
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return requestForm<User>("/auth/me/avatar", form, "POST");
+  },
+  removeAvatar: () => request<User>("/auth/me/avatar", { method: "DELETE" }),
+  tasks: () => request<Task[]>("/tasks"),
+  createTask: (input: TaskInput) =>
+    request<Task>("/tasks", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateTask: (taskId: number, update: TaskUpdate) =>
+    request<Task>(`/tasks/${taskId}`, {
+      method: "PATCH",
+      body: JSON.stringify(update),
+    }),
+  deleteTask: (taskId: number) => request<void>(`/tasks/${taskId}`, { method: "DELETE" }),
+  goals: () => request<Goal[]>("/goals"),
+  createGoal: (input: GoalInput) =>
+    request<Goal>("/goals", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateGoal: (goalId: number, update: GoalUpdate) =>
+    request<Goal>(`/goals/${goalId}`, {
+      method: "PATCH",
+      body: JSON.stringify(update),
+    }),
+  deleteGoal: (goalId: number) => request<void>(`/goals/${goalId}`, { method: "DELETE" }),
+  exportData: () => request<ExportData>("/export"),
+  importData: (data: ImportData) =>
+    request<ImportResult>("/import", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 };

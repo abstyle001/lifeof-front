@@ -6,6 +6,12 @@ export interface User {
   experience: number;
 }
 
+export interface UserUpdateInput {
+  username?: string;
+  old_password?: string;
+  new_password?: string;
+}
+
 export interface Token {
   access_token: string;
   token_type: string;
@@ -34,6 +40,10 @@ export type RecordInput = Omit<DailyRecord, "id" | "note"> & {
   note?: string | null;
 };
 
+export interface RecordSave extends DailyRecord {
+  new_achievements: Achievement[];
+}
+
 export interface SocialInteraction {
   id: number;
   date: string;
@@ -43,6 +53,27 @@ export interface SocialInteraction {
 }
 
 export type SocialInput = Omit<SocialInteraction, "id">;
+
+export interface Task {
+  id: number;
+  date: string;
+  title: string;
+  done: boolean;
+}
+
+export type TaskInput = Omit<Task, "id">;
+
+export type TaskUpdate = Partial<Pick<Task, "title" | "done">>;
+
+export interface Goal {
+  id: number;
+  title: string;
+  done: boolean;
+}
+
+export type GoalInput = Omit<Goal, "id">;
+
+export type GoalUpdate = Partial<Pick<Goal, "title" | "done">>;
 
 export type AttributeKey = "INT" | "VIT" | "FOCUS" | "CHA";
 
@@ -64,6 +95,15 @@ export interface TrendPoint {
   study_time: number;
   sleep: number;
   exercise: number;
+  reading_count: number;
+  skill_time: number;
+  mood: number;
+  focus: number;
+  diet: number;
+  stress: number;
+  energy: number;
+  tasks_completed: number;
+  tasks_total: number;
 }
 
 export interface Dashboard {
@@ -84,6 +124,8 @@ export interface Achievement {
   title: string;
   description: string;
   unlocked_at: string | null;
+  requirement: string;
+  progress: number | null;
 }
 
 export interface AchievementsResponse {
@@ -127,6 +169,7 @@ export interface WeeklyReport {
   concerns: ReportItem[];
   suggestions: ReportItem[];
   next_goal: string;
+  prediction: string;
   source: "ai" | "fallback";
 }
 
@@ -161,5 +204,30 @@ export interface MonthlyReport {
   concerns: ReportItem[];
   suggestions: ReportItem[];
   next_goal: string;
+  prediction: string;
   source: "ai" | "fallback";
+}
+
+export interface ExportData {
+  exported_at: string;
+  user: User;
+  records: DailyRecord[];
+  social: SocialInteraction[];
+  achievements: Achievement[];
+  goals: Goal[];
+  tasks: Task[];
+}
+
+export interface ImportData {
+  records: RecordInput[];
+  social: SocialInput[];
+  goals: GoalInput[];
+  tasks: TaskInput[];
+}
+
+export interface ImportResult {
+  records: number;
+  social: number;
+  goals: number;
+  tasks: number;
 }

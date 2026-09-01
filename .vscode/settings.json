@@ -11,7 +11,7 @@
     "editor.defaultFormatter": "oxc.oxc-vscode"
   },
   "[typescriptreact]": {
-    "editor.defaultFormatter": "oxc.oxc-vscode"
+    "editor.defaultFormatter": "rvest.vs-code-prettier-eslint"
   },
   "oxc.fmt.configPath": "./vite.config.ts",
   "editor.formatOnSave": true,
