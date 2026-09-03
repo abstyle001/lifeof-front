@@ -25,80 +25,81 @@ import type {
   WeeklyStatsResponse,
 } from "./types";
 
-const TOKEN_KEY = "lifeos_token";
+import { apiTransport, buildApiUrl } from "./runtime";
+import { clearToken, getToken } from "./tokenStore";
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+export const AUTH_UNAUTHORIZED_EVENT = "lifeos:unauthorized";
+
+export class UnauthorizedError extends Error {
+  constructor(message = "未登录或登录已过期") {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
 }
 
-export function setToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
+export class ConnectionError extends Error {
+  constructor(message = "无法连接服务器，请检查网络后重试") {
+    super(message);
+    this.name = "ConnectionError";
+  }
 }
 
-export function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
+async function send(path: string, options: RequestInit): Promise<Response> {
+  try {
+    return await apiTransport.fetch(buildApiUrl(path), options);
+  } catch (error) {
+    console.warn("LifeOS API connection failed", error);
+    throw new ConnectionError();
+  }
+}
+
+async function responseError(res: Response): Promise<Error> {
+  let detail = `请求失败（${res.status}）`;
+  try {
+    const body = (await res.json()) as { detail?: unknown };
+    if (typeof body.detail === "string") detail = body.detail;
+  } catch {
+    // 响应体非 JSON 时保留默认错误信息。
+  }
+  return new Error(detail);
+}
+
+async function handleUnauthorized(): Promise<never> {
+  await clearToken();
+  window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+  throw new UnauthorizedError();
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
+  const isAuthEndpoint = path === "/auth/login" || path === "/auth/register";
+  const token = isAuthEndpoint ? null : await getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string> | undefined),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`/api${path}`, { ...options, headers });
-
-  const isAuthEndpoint = path === "/auth/login" || path === "/auth/register";
-  if (res.status === 401 && !isAuthEndpoint) {
-    clearToken();
-    window.location.href = "/login";
-    throw new Error("未登录或登录已过期");
-  }
-
-  if (!res.ok) {
-    let detail = `请求失败（${res.status}）`;
-    try {
-      const body = (await res.json()) as { detail?: unknown };
-      if (typeof body.detail === "string") detail = body.detail;
-    } catch {
-      // 响应体非 JSON 时忽略，保留默认错误信息
-    }
-    throw new Error(detail);
-  }
-
+  const res = await send(path, { ...options, headers });
+  if (res.status === 401 && !isAuthEndpoint) return handleUnauthorized();
+  if (!res.ok) throw await responseError(res);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
-async function requestForm<T>(path: string, body: FormData, method: "POST" | "DELETE"): Promise<T> {
-  const token = getToken();
+async function requestForm<T>(path: string, body: FormData, method: "POST"): Promise<T> {
+  const token = await getToken();
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`/api${path}`, { method, headers, body });
-
-  if (res.status === 401) {
-    clearToken();
-    window.location.href = "/login";
-    throw new Error("未登录或登录已过期");
-  }
-  if (!res.ok) {
-    let detail = `请求失败（${res.status}）`;
-    try {
-      const payload = (await res.json()) as { detail?: unknown };
-      if (typeof payload.detail === "string") detail = payload.detail;
-    } catch {
-      // 响应体非 JSON 时忽略
-    }
-    throw new Error(detail);
-  }
+  const res = await send(path, { method, headers, body });
+  if (res.status === 401) return handleUnauthorized();
+  if (!res.ok) throw await responseError(res);
   return res.json() as Promise<T>;
 }
 
 async function streamChat(message: string, onDelta: (delta: string) => void): Promise<string> {
-  const token = getToken();
-  const res = await fetch("/api/ai/chat/stream", {
+  const token = await getToken();
+  const res = await send("/ai/chat/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -107,33 +108,23 @@ async function streamChat(message: string, onDelta: (delta: string) => void): Pr
     body: JSON.stringify({ message }),
   });
 
-  if (res.status === 401) {
-    clearToken();
-    window.location.href = "/login";
-    throw new Error("未登录或登录已过期");
-  }
-  if (!res.ok) {
-    let detail = `请求失败（${res.status}）`;
-    try {
-      const body = (await res.json()) as { detail?: unknown };
-      if (typeof body.detail === "string") detail = body.detail;
-    } catch {
-      // 响应体非 JSON 时忽略
-    }
-    throw new Error(detail);
-  }
-  if (!res.body) throw new Error("浏览器不支持流式响应");
+  if (res.status === 401) return handleUnauthorized();
+  if (!res.ok) throw await responseError(res);
+  if (!res.body) throw new Error("当前运行环境不支持流式响应");
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let full = "";
-  for (;;) {
+  let streamDone = false;
+
+  while (!streamDone) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const parts = buffer.split("\n\n");
     buffer = parts.pop() ?? "";
+
     for (const part of parts) {
       const line = part.trim();
       if (!line.startsWith("data:")) continue;
@@ -150,9 +141,13 @@ async function streamChat(message: string, onDelta: (delta: string) => void): Pr
         full += obj.delta;
         onDelta(obj.delta);
       }
-      if (obj.done) break;
+      if (obj.done) {
+        streamDone = true;
+        break;
+      }
     }
   }
+
   return full;
 }
 

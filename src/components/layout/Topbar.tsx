@@ -8,8 +8,8 @@ export function Topbar() {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     void navigate("/login");
   }
 
@@ -24,7 +24,7 @@ export function Topbar() {
       <div className="hidden md:block" />
       <div className="flex items-center gap-2">
         <MobileNav />
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
+        <Button variant="ghost" size="sm" onClick={() => void handleLogout()}>
           <LogOut className="h-4 w-4" />
           退出
         </Button>

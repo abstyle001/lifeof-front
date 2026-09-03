@@ -1,0 +1,61 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "LifeOS",
+  "version": "0.1.0",
+  "identifier": "io.github.abstyle001.lifeos",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "pnpm run desktop:web:dev",
+    "beforeBuildCommand": "pnpm run desktop:web:build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "LifeOS · 人生仪表盘",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 680,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "devtools": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*.public.blob.vercel-storage.com; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost https://lifeos-back.vercel.app",
+      "capabilities": ["main-window"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "category": "Productivity",
+    "shortDescription": "个人数据可视化人生仪表盘",
+    "longDescription": "将学习、健康、情绪、运动和任务数据转化为 RPG 属性、等级与成就。",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/abstyle001/lifeof-front/releases/latest/download/latest.json"
+      ],
+      "pubkey": ""
+    }
+  }
+}

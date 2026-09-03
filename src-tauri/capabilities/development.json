@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "development-api",
+  "description": "Adds access to the local FastAPI server only during Tauri development",
+  "windows": ["main"],
+  "permissions": [
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [
+        {
+          "url": "http://127.0.0.1:8000/**"
+        }
+      ]
+    }
+  ]
+}

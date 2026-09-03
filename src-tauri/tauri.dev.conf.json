@@ -1,0 +1,8 @@
+{
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://*.public.blob.vercel-storage.com; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost http://127.0.0.1:8000 https://lifeos-back.vercel.app",
+      "capabilities": ["main-window", "development-api"]
+    }
+  }
+}

@@ -1,53 +1,90 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, clearToken, getToken, setToken } from "./api";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { api, AUTH_UNAUTHORIZED_EVENT, UnauthorizedError } from "./api";
+import { clearToken, getToken, setToken } from "./tokenStore";
 import type { User } from "./types";
+
+export type AuthStatus = "loading" | "authenticated" | "anonymous" | "connection-error";
 
 interface AuthContextValue {
   user: User | null;
+  status: AuthStatus;
   loading: boolean;
   setUser: (user: User | null) => void;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  retryConnection: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<AuthStatus>("loading");
+
+  const bootstrap = useCallback(async () => {
+    setStatus("loading");
+    try {
+      if (!(await getToken())) {
+        setUser(null);
+        setStatus("anonymous");
+        return;
+      }
+      const currentUser = await api.me();
+      setUser(currentUser);
+      setStatus("authenticated");
+    } catch (error) {
+      setUser(null);
+      setStatus(error instanceof UnauthorizedError ? "anonymous" : "connection-error");
+    }
+  }, []);
 
   useEffect(() => {
-    if (!getToken()) {
-      setLoading(false);
-      return;
-    }
-    api
-      .me()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    void bootstrap();
+  }, [bootstrap]);
+
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser(null);
+      setStatus("anonymous");
+    };
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
   async function login(username: string, password: string) {
     const token = await api.login(username, password);
-    setToken(token.access_token);
+    await setToken(token.access_token);
     setUser(token.user);
+    setStatus("authenticated");
   }
 
   async function register(username: string, password: string) {
     const token = await api.register(username, password);
-    setToken(token.access_token);
+    await setToken(token.access_token);
     setUser(token.user);
+    setStatus("authenticated");
   }
 
-  function logout() {
-    clearToken();
+  async function logout() {
+    await clearToken();
     setUser(null);
+    setStatus("anonymous");
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, setUser, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        status,
+        loading: status === "loading",
+        setUser,
+        login,
+        register,
+        logout,
+        retryConnection: bootstrap,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
