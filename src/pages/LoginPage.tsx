@@ -9,8 +9,8 @@ import { useAuth } from "@/lib/auth";
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("demo");
-  const [password, setPassword] = useState("demo1234");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,9 +65,6 @@ export function LoginPage() {
               <Link to="/register" className="text-primary hover:underline">
                 注册
               </Link>
-            </p>
-            <p className="text-center font-mono text-xs text-muted-foreground">
-              演示账号 demo / demo1234
             </p>
           </form>
         </CardContent>
