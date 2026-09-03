@@ -75,6 +75,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "LifeOS __VERSION__"
           releaseBody: "See the assets below to install or update LifeOS Desktop."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: --target x86_64-pc-windows-msvc
