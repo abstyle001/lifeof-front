@@ -26,7 +26,7 @@ export interface DailyRecord {
   exercise: number;
   mood: number;
   focus: number;
-  reading_count: number;
+  reading_time: number;
   skill_time: number;
   diet: number;
   stress: number;
@@ -59,11 +59,12 @@ export interface Task {
   date: string;
   title: string;
   done: boolean;
+  importance: "high" | "medium" | "low";
 }
 
 export type TaskInput = Omit<Task, "id">;
 
-export type TaskUpdate = Partial<Pick<Task, "title" | "done">>;
+export type TaskUpdate = Partial<Pick<Task, "title" | "done" | "importance">>;
 
 export interface Goal {
   id: number;
@@ -95,7 +96,7 @@ export interface TrendPoint {
   study_time: number;
   sleep: number;
   exercise: number;
-  reading_count: number;
+  reading_time: number;
   skill_time: number;
   mood: number;
   focus: number;
@@ -114,7 +115,7 @@ export interface Dashboard {
   total_days: number;
   total_study_hours: number;
   total_exercise_hours: number;
-  books_read: number;
+  total_reading_hours: number;
   recent_records: DailyRecord[];
   trend: TrendPoint[];
 }

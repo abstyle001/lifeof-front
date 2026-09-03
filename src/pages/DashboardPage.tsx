@@ -57,7 +57,7 @@ export function DashboardPage() {
           />
           <StatCard
             label="累计阅读"
-            value={`${data.books_read} 本`}
+            value={`${data.total_reading_hours}h`}
             icon={<BookOpen className="h-4 w-4" />}
           />
         </div>

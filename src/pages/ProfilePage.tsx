@@ -233,7 +233,7 @@ export function ProfilePage() {
     { label: "打卡天数", value: `${data.total_days} 天` },
     { label: "累计学习", value: `${data.total_study_hours} 小时` },
     { label: "累计运动", value: `${data.total_exercise_hours} 小时` },
-    { label: "累计阅读", value: `${data.books_read} 本` },
+    { label: "累计阅读", value: `${data.total_reading_hours} 小时` },
     { label: "当前等级", value: `LV. ${user.level}` },
     { label: "累计经验", value: `${user.experience}` },
   ];
