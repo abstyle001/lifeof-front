@@ -11,6 +11,10 @@ import type {
   ImportData,
   ImportResult,
   MonthlyReport,
+  ProfileSearchResult,
+  ProfileSettings,
+  ProfileSettingsUpdate,
+  PublicProfile,
   RecordInput,
   RecordSave,
   SocialInput,
@@ -163,6 +167,16 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
   me: () => request<User>("/auth/me"),
+  searchProfiles: (query: string) =>
+    request<ProfileSearchResult[]>(`/profiles/search?q=${encodeURIComponent(query)}`),
+  publicProfile: (username: string) =>
+    request<PublicProfile>(`/profiles/${encodeURIComponent(username)}`),
+  profileSettings: () => request<ProfileSettings>("/profiles/me/settings"),
+  updateProfileSettings: (input: ProfileSettingsUpdate) =>
+    request<ProfileSettings>("/profiles/me/settings", {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
   dashboard: () => request<Dashboard>("/dashboard"),
   records: () => request<DailyRecord[]>("/records"),
   upsertRecord: (record: RecordInput) =>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Page } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -211,7 +212,11 @@ function EditProfileDialog({
 
 export function ProfilePage() {
   const { data, error, loading, reload } = useFetch(api.dashboard);
+  const settingsFetch = useFetch(api.profileSettings);
   const { user: authUser, setUser } = useAuth();
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [visibilityNotice, setVisibilityNotice] = useState<string | null>(null);
+  const [visibilityError, setVisibilityError] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -228,6 +233,23 @@ export function ProfilePage() {
 
   const user = authUser ?? data.user;
   const progress = xpProgress(user.experience, user.level);
+
+  const isPublic = settingsFetch.data?.is_public ?? false;
+
+  async function handleVisibilityToggle() {
+    setVisibilitySaving(true);
+    setVisibilityNotice(null);
+    setVisibilityError(null);
+    try {
+      await api.updateProfileSettings({ is_public: !isPublic });
+      setVisibilityNotice(!isPublic ? "公开档案已开启" : "公开档案已关闭");
+      settingsFetch.reload();
+    } catch (e) {
+      setVisibilityError(e instanceof Error ? e.message : "保存隐私设置失败");
+    } finally {
+      setVisibilitySaving(false);
+    }
+  }
 
   const rows = [
     { label: "打卡天数", value: `${data.total_days} 天` },
@@ -267,6 +289,51 @@ export function ProfilePage() {
               </div>
             ))}
           </dl>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                隐私与公开档案
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {isPublic
+                  ? "其他登录用户可以通过用户名搜索并查看你的成长摘要。"
+                  : "你的档案目前不会出现在发现搜索中，只有你自己可以查看。"}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant={isPublic ? "default" : "outline"}
+              aria-pressed={isPublic}
+              disabled={settingsFetch.loading || visibilitySaving}
+              onClick={() => void handleVisibilityToggle()}
+            >
+              {visibilitySaving ? "保存中…" : isPublic ? "已公开" : "设为公开"}
+            </Button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <Link
+              className="text-primary underline-offset-4 hover:underline"
+              to={`/profiles/${encodeURIComponent(user.username)}`}
+            >
+              预览我的档案
+            </Link>
+            <span className="text-muted-foreground">
+              公开内容仅包含等级、经验、属性和已解锁成就。
+            </span>
+          </div>
+          {visibilityNotice && (
+            <p className="mt-3 text-sm text-[#34d399]" role="status">
+              {visibilityNotice}
+            </p>
+          )}
+          {visibilityError && (
+            <p className="mt-3 text-sm text-destructive" role="alert">
+              {visibilityError}
+            </p>
+          )}
         </Card>
 
         <Card className="p-6">

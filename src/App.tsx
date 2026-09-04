@@ -7,8 +7,10 @@ import { AchievementsPage } from "./pages/AchievementsPage";
 import { AiCoachPage } from "./pages/AiCoachPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DiscoverPage } from "./pages/DiscoverPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { RecordPage } from "./pages/RecordPage";
 import { RegisterPage } from "./pages/RegisterPage";
 
@@ -51,6 +53,8 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/record" element={<RecordPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/profiles/:username" element={<PublicProfilePage />} />
         <Route path="/ai" element={<AiCoachPage />} />
         <Route path="/achievements" element={<AchievementsPage />} />
         <Route path="/profile" element={<ProfilePage />} />

@@ -6,6 +6,35 @@ export interface User {
   experience: number;
 }
 
+export interface ProfileSettings {
+  is_public: boolean;
+}
+
+export type ProfileSettingsUpdate = ProfileSettings;
+
+export interface ProfileSearchResult {
+  username: string;
+  avatar: string | null;
+  level: number;
+  experience: number;
+}
+
+export interface PublicAchievement {
+  code: string;
+  title: string;
+  description: string;
+  unlocked_at: string;
+}
+
+export interface PublicProfile {
+  username: string;
+  avatar: string | null;
+  level: number;
+  experience: number;
+  attributes: Attributes;
+  achievements: PublicAchievement[];
+}
+
 export interface UserUpdateInput {
   username?: string;
   old_password?: string;
