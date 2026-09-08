@@ -2,8 +2,11 @@ import type {
   AchievementsResponse,
   ChatMessage,
   ChatResponse,
+  ChatStreamEvent,
+  Conversation,
   Dashboard,
   DailyRecord,
+  DirectMessage,
   ExportData,
   FollowAction,
   FollowListKind,
@@ -27,6 +30,7 @@ import type {
   TaskInput,
   TaskUpdate,
   Token,
+  UnreadCount,
   User,
   UserUpdateInput,
   WeeklyReport,
@@ -105,6 +109,52 @@ async function requestForm<T>(path: string, body: FormData, method: "POST"): Pro
   return res.json() as Promise<T>;
 }
 
+/**
+ * 通用 SSE 帧解析器：读 ReadableStream，按 `\n\n` 分帧，只解析 `data:` 行的 JSON。
+ * 注释帧（`: keepalive`）与空行自动跳过。onFrame 返回 true 表示主动停止，
+ * 会 cancel reader 并让 readSSEFrames 正常返回。
+ */
+async function readSSEFrames<T>(
+  res: Response,
+  onFrame: (frame: T) => boolean | void,
+): Promise<void> {
+  if (!res.body) throw new Error("当前运行环境不支持流式响应");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+
+    for (const part of parts) {
+      const line = part.trim();
+      // 跳过注释帧（SSE keepalive）与空行
+      if (!line || line.startsWith(":")) continue;
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (!data) continue;
+      let obj: T;
+      try {
+        obj = JSON.parse(data) as T;
+      } catch {
+        continue;
+      }
+      if (onFrame(obj) === true) {
+        try {
+          await reader.cancel();
+        } catch {
+          // reader 已关闭时忽略
+        }
+        return;
+      }
+    }
+  }
+}
+
 async function streamChat(message: string, onDelta: (delta: string) => void): Promise<string> {
   const token = await getToken();
   const res = await send("/ai/chat/stream", {
@@ -118,45 +168,50 @@ async function streamChat(message: string, onDelta: (delta: string) => void): Pr
 
   if (res.status === 401) return handleUnauthorized();
   if (!res.ok) throw await responseError(res);
-  if (!res.body) throw new Error("当前运行环境不支持流式响应");
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
   let full = "";
-  let streamDone = false;
-
-  while (!streamDone) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
-
-    for (const part of parts) {
-      const line = part.trim();
-      if (!line.startsWith("data:")) continue;
-      const data = line.slice(5).trim();
-      if (!data) continue;
-      let obj: { delta?: string; error?: string; done?: boolean };
-      try {
-        obj = JSON.parse(data) as { delta?: string; error?: string; done?: boolean };
-      } catch {
-        continue;
-      }
-      if (obj.error) throw new Error(obj.error);
-      if (obj.delta) {
-        full += obj.delta;
-        onDelta(obj.delta);
-      }
-      if (obj.done) {
-        streamDone = true;
-        break;
-      }
+  let streamError: string | null = null;
+  await readSSEFrames<{ delta?: string; error?: string; done?: boolean }>(res, (obj) => {
+    if (obj.error) {
+      streamError = obj.error;
+      return true;
     }
-  }
-
+    if (obj.delta) {
+      full += obj.delta;
+      onDelta(obj.delta);
+    }
+    if (obj.done) return true;
+    return false;
+  });
+  if (streamError) throw new Error(streamError);
   return full;
+}
+
+/**
+ * 私聊 SSE 订阅：GET /chat/stream，服务端每 25s 发一个 keepalive 注释帧。
+ * 永不主动停，由 AbortSignal 或服务端断开触发结束；调用方负责重连（指数退避）。
+ *
+ * 命名注意：与 AI 教练的 `api.chatStream`（流式对话）区分开，这里叫
+ * `subscribeChatStream`，强调"订阅事件长连接"语义。
+ */
+async function subscribeChatStream(
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = await getToken();
+  const res = await send("/chat/stream", {
+    method: "GET",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    signal,
+  });
+
+  if (res.status === 401) return handleUnauthorized();
+  if (!res.ok) throw await responseError(res);
+
+  await readSSEFrames<ChatStreamEvent>(res, (event) => {
+    onEvent(event);
+    return false;
+  });
 }
 
 export const api = {
@@ -263,4 +318,38 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // --- Direct Chat（用户私聊） ---
+  // 命名避开 `chat*` 前缀：api.chat / chatHistory / chatStream 已被 AI 教练占用。
+  conversations: (limit = 50) => request<Conversation[]>(`/chat/conversations?limit=${limit}`),
+  createConversation: (peer: string) =>
+    request<Conversation>("/chat/conversations", {
+      method: "POST",
+      body: JSON.stringify({ peer }),
+    }),
+  messages: (conversationId: number, beforeId?: number, limit = 50) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (beforeId != null) params.set("before_id", String(beforeId));
+    return request<DirectMessage[]>(
+      `/chat/conversations/${conversationId}/messages?${params.toString()}`,
+    );
+  },
+  sendMessage: (conversationId: number, content: string, clientMessageId?: string) =>
+    request<DirectMessage>(`/chat/conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(
+        clientMessageId ? { content, client_message_id: clientMessageId } : { content },
+      ),
+    }),
+  markConversationRead: (conversationId: number, messageId?: number) =>
+    request<UnreadCount>(`/chat/conversations/${conversationId}/read`, {
+      method: "POST",
+      body: JSON.stringify(messageId != null ? { message_id: messageId } : {}),
+    }),
+  hideConversation: (conversationId: number) =>
+    request<void>(`/chat/conversations/${conversationId}`, { method: "DELETE" }),
+  unreadCount: () => request<UnreadCount>("/chat/unread-count"),
+  /** SSE 长连接订阅；调用方负责重连（见 AppShell 的指数退避逻辑）。 */
+  subscribeChatStream: (onEvent: (event: ChatStreamEvent) => void, signal?: AbortSignal) =>
+    subscribeChatStream(onEvent, signal),
 };

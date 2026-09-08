@@ -285,3 +285,49 @@ export interface ImportResult {
   goals: number;
   tasks: number;
 }
+
+// --- Direct Chat（用户私聊） ---
+
+/** 会话中对方的最小投影（对齐后端 ChatPeerOut）。 */
+export interface ChatPeer {
+  username: string;
+  avatar: string | null;
+  level: number;
+}
+
+/** 单条私聊消息（对齐后端 DirectMessageOut）。 */
+export interface DirectMessage {
+  id: number;
+  conversation_id: number;
+  sender_id: number;
+  sender_username: string;
+  content: string;
+  created_at: string;
+  client_message_id: string | null;
+}
+
+/** 会话列表项 / 发起会话返回值（对齐后端 ConversationOut）。 */
+export interface Conversation {
+  id: number;
+  peer: ChatPeer;
+  last_message: DirectMessage | null;
+  last_message_at: string | null;
+  unread_count: number;
+  created_at: string;
+}
+
+/** SSE 事件联合类型（对齐后端 routers/chat.py event_gen 的 payload）。 */
+export type ChatStreamEvent =
+  | { type: "connected"; user_id: number }
+  | { type: "message.new"; conversation_id: number; message: DirectMessage }
+  | {
+      type: "message.read";
+      conversation_id: number;
+      reader_id: number;
+      message_id: number;
+    }
+  | { type: "conversation.hidden"; conversation_id: number };
+
+export interface UnreadCount {
+  total: number;
+}

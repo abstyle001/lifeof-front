@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, LockKeyhole, UserPlus, UserCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  LockKeyhole,
+  MessageSquare,
+  UserPlus,
+  UserCheck,
+} from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Page } from "@/components/layout/Page";
 import { FollowListDialog } from "@/components/profile/FollowListDialog";
@@ -44,6 +51,8 @@ export function PublicProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
   const [followError, setFollowError] = useState<string | null>(null);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +114,19 @@ export function PublicProfilePage() {
       setFollowError(e instanceof Error ? e.message : "操作失败，请稍后重试");
     } finally {
       setFollowBusy(false);
+    }
+  }
+
+  async function startChat() {
+    if (!profile || chatBusy) return;
+    setChatBusy(true);
+    setChatError(null);
+    try {
+      const conv = await api.createConversation(profile.username);
+      void navigate(`/messages/${conv.id}`);
+    } catch (e) {
+      setChatError(e instanceof Error ? e.message : "发起聊天失败，请稍后重试");
+      setChatBusy(false);
     }
   }
 
@@ -209,25 +231,38 @@ export function PublicProfilePage() {
                 编辑公开设置
               </Button>
             ) : (
-              <Button
-                variant={profile.is_following ? "outline" : "default"}
-                disabled={followBusy}
-                onClick={() => void toggleFollow()}
-                className="min-w-28"
-              >
-                {profile.is_following ? (
-                  <>
-                    <UserCheck className="h-4 w-4" />
-                    已关注
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4" />
-                    关注
-                  </>
-                )}
-              </Button>
+              <div className="flex flex-row items-center gap-2">
+                <Button
+                  variant="outline"
+                  disabled={chatBusy || !profile.is_following}
+                  onClick={() => void startChat()}
+                  title={profile.is_following ? "发起聊天" : "关注后可发消息"}
+                  className="min-w-24"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  发消息
+                </Button>
+                <Button
+                  variant={profile.is_following ? "outline" : "default"}
+                  disabled={followBusy}
+                  onClick={() => void toggleFollow()}
+                  className="min-w-28"
+                >
+                  {profile.is_following ? (
+                    <>
+                      <UserCheck className="h-4 w-4" />
+                      已关注
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      关注
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
+            {chatError && <p className="text-xs text-destructive">{chatError}</p>}
             {followError && <p className="text-xs text-destructive">{followError}</p>}
           </div>
         </Card>

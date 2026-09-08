@@ -1,7 +1,19 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import { useUnread } from "@/lib/unreadStore";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "./nav";
+import { NAV_ITEMS, type NavItem } from "./nav";
+
+function NavBadge({ item }: { item: NavItem }) {
+  const { totalUnread } = useUnread();
+  if (item.badge !== "unread" || totalUnread <= 0) return null;
+  const label = totalUnread > 99 ? "99+" : String(totalUnread);
+  return (
+    <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 font-mono text-[10px] font-bold text-white">
+      {label}
+    </span>
+  );
+}
 
 export function Sidebar() {
   const { user } = useAuth();
@@ -32,6 +44,7 @@ export function Sidebar() {
           >
             <item.icon className="h-4 w-4" />
             {item.label}
+            <NavBadge item={item} />
           </NavLink>
         ))}
       </nav>

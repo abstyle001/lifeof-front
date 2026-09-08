@@ -1,8 +1,14 @@
 import { Outlet } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { useChatStream } from "@/lib/useChatStream";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell() {
+  const { user } = useAuth();
+  // 私聊 SSE 长连接 + 会话列表初始化 + 兜底轮询；仅在已登录时生效
+  useChatStream(user?.id ?? null);
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />

@@ -6,9 +6,11 @@ import { useAuth } from "./lib/auth";
 import { AchievementsPage } from "./pages/AchievementsPage";
 import { AiCoachPage } from "./pages/AiCoachPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
+import { ConversationPage } from "./pages/ConversationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DiscoverPage } from "./pages/DiscoverPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MessagesPage } from "./pages/MessagesPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { RecordPage } from "./pages/RecordPage";
@@ -54,6 +56,8 @@ export default function App() {
         <Route path="/record" element={<RecordPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/messages/:conversationId" element={<ConversationPage />} />
         <Route path="/profiles/:username" element={<PublicProfilePage />} />
         <Route path="/ai" element={<AiCoachPage />} />
         <Route path="/achievements" element={<AchievementsPage />} />
