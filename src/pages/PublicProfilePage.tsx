@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, LockKeyhole } from "lucide-react";
+import { ArrowLeft, CheckCircle2, LockKeyhole, UserPlus, UserCheck } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Page } from "@/components/layout/Page";
+import { FollowListDialog } from "@/components/profile/FollowListDialog";
 import { AttributePanel } from "@/components/dashboard/AttributePanel";
 import { AttributeRadar } from "@/components/dashboard/AttributeRadar";
 import { Button } from "@/components/ui/button";
@@ -41,12 +42,15 @@ export function PublicProfilePage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
     setProfile(null);
+    setFollowError(null);
     if (!username) {
       setLoading(false);
       setError("用户不存在或不可见");
@@ -71,6 +75,38 @@ export function PublicProfilePage() {
       active = false;
     };
   }, [username]);
+
+  async function toggleFollow() {
+    if (!profile || followBusy) return;
+    const wasFollowing = profile.is_following;
+    setFollowBusy(true);
+    setFollowError(null);
+    // 乐观更新，失败回滚
+    setProfile({
+      ...profile,
+      is_following: !wasFollowing,
+      followers_count: profile.followers_count + (wasFollowing ? -1 : 1),
+    });
+    try {
+      const result = wasFollowing
+        ? await api.unfollow(profile.username)
+        : await api.follow(profile.username);
+      setProfile((current) =>
+        current
+          ? {
+              ...current,
+              is_following: result.is_following,
+              followers_count: result.followers_count,
+            }
+          : current,
+      );
+    } catch (e) {
+      setProfile({ ...profile, is_following: wasFollowing });
+      setFollowError(e instanceof Error ? e.message : "操作失败，请稍后重试");
+    } finally {
+      setFollowBusy(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -121,14 +157,78 @@ export function PublicProfilePage() {
         <Card className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
           <ProfileAvatar profile={profile} />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold">{profile.username}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-xl font-semibold">{profile.username}</h1>
+              {profile.is_following && profile.is_followed_by && (
+                <span className="rounded-full border border-[#34d399]/40 bg-[#34d399]/10 px-2 py-0.5 text-xs text-[#34d399]">
+                  互相关注
+                </span>
+              )}
+              {profile.is_self && (
+                <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                  这是你的公开档案
+                </span>
+              )}
+            </div>
             <p className="mt-1 font-mono text-sm text-muted-foreground">
               第 {profile.level} 级 · 经验 {profile.experience}
             </p>
             <Progress value={progress} className="mt-4" />
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <FollowListDialog
+                username={profile.username}
+                kind="following"
+                count={profile.following_count}
+                trigger={
+                  <button
+                    type="button"
+                    className="font-mono text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                  >
+                    关注 {profile.following_count}
+                  </button>
+                }
+              />
+              <FollowListDialog
+                username={profile.username}
+                kind="followers"
+                count={profile.followers_count}
+                trigger={
+                  <button
+                    type="button"
+                    className="font-mono text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                  >
+                    粉丝 {profile.followers_count}
+                  </button>
+                }
+              />
+            </div>
           </div>
-          <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-            公开成长档案
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            {profile.is_self ? (
+              <Button variant="outline" onClick={() => void navigate("/profile")}>
+                编辑公开设置
+              </Button>
+            ) : (
+              <Button
+                variant={profile.is_following ? "outline" : "default"}
+                disabled={followBusy}
+                onClick={() => void toggleFollow()}
+                className="min-w-28"
+              >
+                {profile.is_following ? (
+                  <>
+                    <UserCheck className="h-4 w-4" />
+                    已关注
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    关注
+                  </>
+                )}
+              </Button>
+            )}
+            {followError && <p className="text-xs text-destructive">{followError}</p>}
           </div>
         </Card>
 

@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Search, UserRound } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Search, Star, UserRound } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Page } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,31 @@ function ProfileAvatar({ user }: { user: Pick<ProfileSearchResult, "username" | 
   );
 }
 
+function UserRow({
+  user,
+  onOpen,
+}: {
+  user: ProfileSearchResult;
+  onOpen: (username: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/60 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={() => onOpen(user.username)}
+    >
+      <ProfileAvatar user={user} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{user.username}</span>
+        <span className="mt-1 block font-mono text-xs text-muted-foreground">
+          LV. {user.level} · 经验 {user.experience}
+        </span>
+      </span>
+      <span className="font-mono text-xs text-primary">查看档案 →</span>
+    </button>
+  );
+}
+
 export function DiscoverPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -29,6 +54,28 @@ export function DiscoverPage() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [following, setFollowing] = useState<ProfileSearchResult[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .followList("me", "following")
+      .then((data) => {
+        if (active) setFollowing(data);
+      })
+      .catch(() => {
+        // 关注列表加载失败不影响搜索主流程
+        if (active) setFollowing([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function openProfile(username: string) {
+    return void navigate(`/profiles/${encodeURIComponent(username)}`);
+  }
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,7 +106,7 @@ export function DiscoverPage() {
         <div>
           <h1 className="font-mono text-2xl font-semibold">发现</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            根据用户名找到公开的 LifeOS 档案，了解彼此的成长状态。
+            根据用户名找到公开的 LifeOS 档案，关注彼此，一起成长。
           </p>
         </div>
 
@@ -114,24 +161,30 @@ export function DiscoverPage() {
         )}
 
         {!loading && results.length > 0 && (
-          <div className="space-y-3" aria-live="polite">
+          <div className="space-y-3" aria-live="polite" aria-label="搜索结果">
             {results.map((result) => (
-              <button
-                key={result.username}
-                type="button"
-                className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/60 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => void navigate(`/profiles/${encodeURIComponent(result.username)}`)}
-              >
-                <ProfileAvatar user={result} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{result.username}</span>
-                  <span className="mt-1 block font-mono text-xs text-muted-foreground">
-                    LV. {result.level} · 经验 {result.experience}
-                  </span>
-                </span>
-                <span className="font-mono text-xs text-primary">查看档案 →</span>
-              </button>
+              <UserRow key={result.username} user={result} onOpen={openProfile} />
             ))}
+          </div>
+        )}
+
+        {!searched && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              <Star className="h-3.5 w-3.5" />
+              我关注的人
+            </div>
+            {following === null ? (
+              <Skeleton className="h-20 w-full" />
+            ) : following.length === 0 ? (
+              <Card className="p-6 text-center text-sm text-muted-foreground">
+                还没有关注任何人，搜索用户名找到一起成长的伙伴。
+              </Card>
+            ) : (
+              following.map((user) => (
+                <UserRow key={user.username} user={user} onOpen={openProfile} />
+              ))
+            )}
           </div>
         )}
       </div>

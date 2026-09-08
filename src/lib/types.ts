@@ -33,7 +33,31 @@ export interface PublicProfile {
   experience: number;
   attributes: Attributes;
   achievements: PublicAchievement[];
+  is_self: boolean;
+  is_following: boolean;
+  is_followed_by: boolean;
+  following_count: number;
+  followers_count: number;
 }
+
+export type FollowUser = ProfileSearchResult;
+
+export interface FollowAction {
+  username: string;
+  is_following: boolean;
+  followers_count: number;
+}
+
+export interface FollowRelation {
+  username: string;
+  is_self: boolean;
+  is_following: boolean;
+  is_followed_by: boolean;
+  following_count: number;
+  followers_count: number;
+}
+
+export type FollowListKind = "following" | "followers";
 
 export interface UserUpdateInput {
   username?: string;

@@ -5,6 +5,10 @@ import type {
   Dashboard,
   DailyRecord,
   ExportData,
+  FollowAction,
+  FollowListKind,
+  FollowRelation,
+  FollowUser,
   Goal,
   GoalInput,
   GoalUpdate,
@@ -177,6 +181,14 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(input),
     }),
+  follow: (username: string) =>
+    request<FollowAction>(`/follows/${encodeURIComponent(username)}`, { method: "POST" }),
+  unfollow: (username: string) =>
+    request<FollowAction>(`/follows/${encodeURIComponent(username)}`, { method: "DELETE" }),
+  followRelation: (username: string) =>
+    request<FollowRelation>(`/follows/${encodeURIComponent(username)}/relation`),
+  followList: (username: string, kind: FollowListKind) =>
+    request<FollowUser[]>(`/follows/${encodeURIComponent(username)}/${kind}`),
   dashboard: () => request<Dashboard>("/dashboard"),
   records: () => request<DailyRecord[]>("/records"),
   upsertRecord: (record: RecordInput) =>
