@@ -9,6 +9,7 @@ import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { ConversationPage } from "./pages/ConversationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DiscoverPage } from "./pages/DiscoverPage";
+import { GoalsPage } from "./pages/GoalsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MessagesPage } from "./pages/MessagesPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/messages/:conversationId" element={<ConversationPage />} />
         <Route path="/profiles/:username" element={<PublicProfilePage />} />
         <Route path="/ai" element={<AiCoachPage />} />
+        <Route path="/goals" element={<GoalsPage />} />
         <Route path="/achievements" element={<AchievementsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

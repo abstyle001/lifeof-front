@@ -335,6 +335,18 @@ export function AiCoachPage() {
               <p className="text-sm leading-relaxed text-foreground">{report.summary}</p>
             </Card>
 
+            {report.prediction && (
+              <Card className="p-6">
+                <div className="mb-2 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  <span style={{ color: "#fbbf24" }}>
+                    <TrendingUp className="h-4 w-4" />
+                  </span>
+                  趋势预测
+                </div>
+                <p className="text-sm leading-relaxed text-foreground">{report.prediction}</p>
+              </Card>
+            )}
+
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <ReportList
                 title="亮点"

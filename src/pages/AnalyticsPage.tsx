@@ -9,14 +9,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Target } from "lucide-react";
+import { Target, TrendingUp } from "lucide-react";
 import { Page } from "@/components/layout/Page";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
-import type { MetricStat, ReportItem } from "@/lib/types";
+import type { MetricStat, ReportItem, TrendPoint } from "@/lib/types";
 
 const tooltipStyle = {
   background: "var(--card)",
@@ -28,6 +28,117 @@ const tooltipStyle = {
 
 function shortDate(iso: string) {
   return iso.slice(5);
+}
+
+type MetricKey = keyof Omit<TrendPoint, "date">;
+
+interface MetricDef {
+  key: MetricKey;
+  label: string;
+  color: string;
+}
+
+interface ChartDef {
+  title: string;
+  unit: string;
+  metrics: MetricDef[];
+}
+
+/** 全部指标按量纲分组：时长（小时）/ 评分（0–10）/ 计数（项）。 */
+const CHARTS: ChartDef[] = [
+  {
+    title: "学习与阅读趋势（近 30 天）",
+    unit: "小时",
+    metrics: [
+      { key: "study_time", label: "学习", color: "var(--primary)" },
+      { key: "reading_time", label: "阅读", color: "#56b4e9" },
+      { key: "skill_time", label: "技能", color: "#a78bfa" },
+    ],
+  },
+  {
+    title: "睡眠与运动趋势（近 30 天）",
+    unit: "小时",
+    metrics: [
+      { key: "sleep", label: "睡眠", color: "#56b4e9" },
+      { key: "exercise", label: "运动", color: "#34d399" },
+    ],
+  },
+  {
+    title: "状态评分趋势（近 30 天）",
+    unit: "0–10 分（压力越低越好）",
+    metrics: [
+      { key: "mood", label: "心情", color: "#f472b6" },
+      { key: "focus", label: "专注", color: "#fbbf24" },
+      { key: "energy", label: "精力", color: "#34d399" },
+      { key: "stress", label: "压力", color: "#ff5c7a" },
+      { key: "diet", label: "饮食", color: "#56b4e9" },
+    ],
+  },
+  {
+    title: "任务完成趋势（近 30 天）",
+    unit: "项",
+    metrics: [
+      { key: "tasks_completed", label: "已完成", color: "#34d399" },
+      { key: "tasks_total", label: "计划", color: "#94a3b8" },
+    ],
+  },
+];
+
+function TrendChart({ chart, data }: { chart: ChartDef; data: TrendPoint[] }) {
+  const rows = useMemo(
+    () =>
+      data.map((t) => {
+        const row: Record<string, string | number> = { date: shortDate(t.date) };
+        for (const m of chart.metrics) row[m.label] = t[m.key];
+        return row;
+      }),
+    [chart, data],
+  );
+
+  return (
+    <Card className="p-6">
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <h2 className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+          {chart.title}
+        </h2>
+        <span className="font-mono text-[10px] text-muted-foreground/70">{chart.unit}</span>
+      </div>
+      <ResponsiveContainer width="100%" height={240}>
+        <LineChart data={rows} margin={{ left: -20, right: 8, top: 8 }}>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+          <XAxis dataKey="date" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+          <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+          <Tooltip contentStyle={tooltipStyle} />
+          <Legend wrapperStyle={{ fontSize: 12, color: "var(--muted-foreground)" }} />
+          {chart.metrics.map((m) => (
+            <Line
+              key={m.key}
+              type="monotone"
+              dataKey={m.label}
+              stroke={m.color}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
+function ForecastCard({ prediction }: { prediction: string }) {
+  return (
+    <Card className="p-6">
+      <div className="mb-2 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        <span style={{ color: "#fbbf24" }}>
+          <TrendingUp className="h-4 w-4" />
+        </span>
+        趋势预测
+      </div>
+      <p className="text-sm leading-relaxed text-foreground">{prediction}</p>
+    </Card>
+  );
 }
 
 function ReportList({
@@ -117,6 +228,8 @@ function MonthlyReportCard() {
         <p className="text-sm leading-relaxed text-foreground">{report.summary}</p>
       </Card>
 
+      {report.prediction ? <ForecastCard prediction={report.prediction} /> : null}
+
       <Card className="p-6">
         <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
           本月 vs 上月
@@ -158,23 +271,11 @@ function MonthlyReportCard() {
 export function AnalyticsPage() {
   const { data, error, loading } = useFetch(api.dashboard);
 
-  const studyData = useMemo(
-    () => (data?.trend ?? []).map((t) => ({ date: shortDate(t.date), 学习: t.study_time })),
-    [data],
-  );
-  const healthData = useMemo(
-    () =>
-      (data?.trend ?? []).map((t) => ({
-        date: shortDate(t.date),
-        睡眠: t.sleep,
-        运动: t.exercise,
-      })),
-    [data],
-  );
-
   if (loading) {
     return (
       <div className="mx-auto max-w-6xl space-y-4">
+        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-72 w-full" />
         <Skeleton className="h-72 w-full" />
         <Skeleton className="h-72 w-full" />
       </div>
@@ -190,44 +291,9 @@ export function AnalyticsPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <h1 className="font-mono text-2xl font-semibold">数据分析</h1>
 
-        <Card className="p-6">
-          <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            学习时间趋势（近 30 天）
-          </h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={studyData} margin={{ left: -20, right: 8, top: 8 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Line
-                type="monotone"
-                dataKey="学习"
-                stroke="var(--primary)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="mb-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-            睡眠与运动趋势（近 30 天）
-          </h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={healthData} margin={{ left: -20, right: 8, top: 8 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Legend wrapperStyle={{ fontSize: 12, color: "var(--muted-foreground)" }} />
-              <Line type="monotone" dataKey="睡眠" stroke="#56b4e9" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="运动" stroke="#34d399" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
+        {CHARTS.map((chart) => (
+          <TrendChart key={chart.title} chart={chart} data={data.trend} />
+        ))}
 
         <MonthlyReportCard />
       </div>

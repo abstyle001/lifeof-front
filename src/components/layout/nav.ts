@@ -5,6 +5,7 @@ import {
   PenLine,
   Search,
   Sparkles,
+  Target,
   Trophy,
   User,
   type LucideIcon,
@@ -28,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/discover", label: "发现", icon: Search },
   { to: "/messages", label: "消息", icon: MessageSquare, badge: "unread" },
   { to: "/ai", label: "AI 教练", icon: Sparkles },
+  { to: "/goals", label: "目标", icon: Target },
   { to: "/achievements", label: "成就", icon: Trophy },
   { to: "/profile", label: "我的", icon: User },
 ];
