@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AvatarUploader } from "@/components/profile/AvatarUploader";
+import { DataTransferCard } from "@/components/profile/DataTransferCard";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { User, UserUpdateInput } from "@/lib/types";
@@ -335,6 +336,8 @@ export function ProfilePage() {
             </p>
           )}
         </Card>
+
+        <DataTransferCard onImported={reload} onUserUpdated={setUser} />
 
         <Card className="p-6">
           <h2 className="mb-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
