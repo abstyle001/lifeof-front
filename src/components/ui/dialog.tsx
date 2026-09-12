@@ -3,20 +3,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentProps, HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-const dialogVariants = cva("fixed z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]", {
-  variants: {
-    size: {
-      sm: "max-w-sm",
-      md: "max-w-lg",
-      lg: "max-w-2xl",
-      xl: "max-w-4xl",
-      full: "max-w-[90vw]",
+const dialogVariants = cva(
+  "fixed left-1/2 top-1/2 z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
+  {
+    variants: {
+      size: {
+        sm: "max-w-sm",
+        md: "max-w-lg",
+        lg: "max-w-2xl",
+        xl: "max-w-4xl",
+        full: "max-w-[90vw]",
+      },
+    },
+    defaultVariants: {
+      size: "md",
     },
   },
-  defaultVariants: {
-    size: "md",
-  },
-});
+);
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
