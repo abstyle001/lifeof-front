@@ -83,6 +83,11 @@ export const unreadStore = {
     setState({ sseConnected: connected });
   },
 
+  upsertConversation(conversation: Conversation) {
+    const rest = state.conversations.filter((c) => c.id !== conversation.id);
+    this.setConversations([conversation, ...rest]);
+  },
+
   /** 全量替换会话列表（初始化、兜底轮询、手动刷新时调用）。 */
   setConversations(conversations: Conversation[]) {
     // 按 last_message_at DESC 排序（服务端已排好，这里兜底）

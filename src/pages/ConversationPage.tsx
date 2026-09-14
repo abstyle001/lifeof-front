@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { messageTime } from "@/lib/relativeTime";
 import { unreadStore, useUnread } from "@/lib/unreadStore";
 import { useAuth } from "@/lib/auth";
+import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ export function ConversationPage() {
   const [rateLockUntil, setRateLockUntil] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const shouldStickToBottom = useRef(true);
   const pendingPrepend = useRef(false);
   const prevScrollHeight = useRef(0);
@@ -179,6 +181,23 @@ export function ConversationPage() {
   // -----------------------------------------------------------------------
   // 发送消息（乐观更新 + 幂等 client_message_id）
   // -----------------------------------------------------------------------
+  const insertEmoji = useCallback(
+    (emoji: string) => {
+      const el = inputRef.current;
+      const start = el?.selectionStart ?? input.length;
+      const end = el?.selectionEnd ?? input.length;
+      const next = input.slice(0, start) + emoji + input.slice(end);
+      if (next.length > 2000) return;
+      setInput(next);
+      requestAnimationFrame(() => {
+        el?.focus();
+        const pos = start + emoji.length;
+        el?.setSelectionRange(pos, pos);
+      });
+    },
+    [input],
+  );
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || sending || !conv || !user) return;
@@ -416,19 +435,24 @@ export function ConversationPage() {
 
         {/* 输入区 */}
         <div className="flex gap-2 border-t p-3">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void handleSend();
-              }
-            }}
-            placeholder={rateLocked ? "发送太快，歇一会儿…" : "说点什么…"}
-            disabled={sending || rateLocked || !conv}
-            maxLength={2000}
-          />
+          <div className="relative min-w-0 flex-1">
+            <Input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              placeholder={rateLocked ? "发送太快，歇一会儿…" : "说点什么…"}
+              disabled={sending || rateLocked || !conv}
+              maxLength={2000}
+              className="pr-10"
+            />
+            <EmojiPicker disabled={sending || rateLocked || !conv} onSelect={insertEmoji} />
+          </div>
           <Button
             onClick={() => void handleSend()}
             disabled={sending || rateLocked || !input.trim() || !conv}
