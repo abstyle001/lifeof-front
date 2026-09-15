@@ -148,9 +148,18 @@ export const unreadStore = {
         break;
       }
 
-      case "message.read":
-        // MVP 不展示已读回执；事件保留给将来用。
+      case "message.read": {
+        const idx = state.conversations.findIndex((c) => c.id === event.conversation_id);
+        if (idx < 0) break;
+        if (state.myUserId === null || event.reader_id === state.myUserId) break;
+        const conv = state.conversations[idx];
+        const current = conv.peer_last_read_message_id;
+        if (current != null && current >= event.message_id) break;
+        const next = [...state.conversations];
+        next[idx] = { ...conv, peer_last_read_message_id: event.message_id };
+        setState({ conversations: next });
         break;
+      }
 
       case "conversation.hidden": {
         // 服务端只推给执行隐藏的用户本人；从列表移除即可。

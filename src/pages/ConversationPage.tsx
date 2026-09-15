@@ -41,6 +41,10 @@ export function ConversationPage() {
   const { conversations, myUserId } = useUnread();
 
   const conv = conversations.find((c) => c.id === conversationId) ?? null;
+  const selfId = user?.id ?? myUserId;
+  const [peerLastRead, setPeerLastRead] = useState<number | null>(
+    conv?.peer_last_read_message_id ?? null,
+  );
 
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,14 +101,28 @@ export function ConversationPage() {
     });
   }, [conversationId]);
 
+  useEffect(() => {
+    const value = conv?.peer_last_read_message_id ?? null;
+    if (value == null) return;
+    setPeerLastRead((current) => (current != null && current >= value ? current : value));
+  }, [conv?.peer_last_read_message_id]);
+
   // -----------------------------------------------------------------------
   // 订阅 SSE：本会话的新消息直接 append
   // -----------------------------------------------------------------------
   useEffect(() => {
     if (!Number.isFinite(conversationId)) return;
     const off = unreadStore.addEventListener((event) => {
-      if (event.type !== "message.new") return;
+      if (event.type !== "message.new" && event.type !== "message.read") return;
       if (event.conversation_id !== conversationId) return;
+      if (event.type === "message.read") {
+        if (selfId !== null && event.reader_id !== selfId) {
+          setPeerLastRead((current) =>
+            current != null && current >= event.message_id ? current : event.message_id,
+          );
+        }
+        return;
+      }
       const msg = event.message;
       setMessages((cur) => {
         // 去重：乐观消息可能已被服务端返回替换，或 SSE 与 REST 响应同时到达
@@ -124,13 +142,13 @@ export function ConversationPage() {
       });
       shouldStickToBottom.current = true;
       // 对方发来的消息 → 标记已读
-      if (myUserId !== null && msg.sender_id !== myUserId) {
+      if (selfId !== null && msg.sender_id !== selfId) {
         unreadStore.markConversationReadLocal(conversationId);
         api.markConversationRead(conversationId, msg.id).catch(() => {});
       }
     });
     return off;
-  }, [conversationId, myUserId]);
+  }, [conversationId, selfId]);
 
   // -----------------------------------------------------------------------
   // 自动滚动：新消息贴底；加载更多时保持视觉位置
@@ -399,31 +417,47 @@ export function ConversationPage() {
                 </div>
               )}
               {messages.map((m) => {
-                const mine = myUserId !== null && m.sender_id === myUserId;
+                const mine = Boolean(
+                  user && (m.sender_id === user.id || m.sender_username === user.username),
+                );
                 const failed = m.status === "failed";
                 const pending = m.status === "sending";
+                const read = m.id > 0 && peerLastRead != null && m.id <= peerLastRead;
                 return (
                   <div key={m.id} className={mine ? "flex justify-end" : "flex justify-start"}>
-                    <div
-                      className={[
-                        "max-w-[75%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm",
-                        mine ? "bg-primary/15" : "bg-secondary",
-                        pending ? "opacity-60" : "",
-                        failed ? "border border-destructive/60" : "",
-                      ].join(" ")}
-                    >
-                      <div>{m.content}</div>
-                      <div className="mt-1 flex items-center justify-end gap-2 font-mono text-[10px] text-muted-foreground">
-                        {failed && (
-                          <button
-                            type="button"
-                            className="text-destructive underline-offset-2 hover:underline"
-                            onClick={() => void retryMessage(m)}
-                          >
-                            发送失败，重试
-                          </button>
-                        )}
-                        <span>{pending ? "发送中…" : messageTime(m.created_at)}</span>
+                    <div className="flex max-w-[85%] items-end gap-1.5">
+                      {mine && !failed && !pending && (
+                        <span
+                          className={
+                            read
+                              ? "mb-1 shrink-0 text-[11px] font-medium text-primary"
+                              : "mb-1 shrink-0 text-[11px] text-muted-foreground"
+                          }
+                        >
+                          {read ? "已读" : "未读"}
+                        </span>
+                      )}
+                      <div
+                        className={[
+                          "min-w-0 whitespace-pre-wrap rounded-lg px-3 py-2 text-sm",
+                          mine ? "bg-primary/15" : "bg-secondary",
+                          pending ? "opacity-60" : "",
+                          failed ? "border border-destructive/60" : "",
+                        ].join(" ")}
+                      >
+                        <div>{m.content}</div>
+                        <div className="mt-1 flex items-center justify-end gap-2 font-mono text-[11px] text-muted-foreground">
+                          {failed && (
+                            <button
+                              type="button"
+                              className="text-destructive underline-offset-2 hover:underline"
+                              onClick={() => void retryMessage(m)}
+                            >
+                              发送失败，重试
+                            </button>
+                          )}
+                          <span>{pending ? "发送中…" : messageTime(m.created_at)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
