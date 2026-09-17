@@ -343,6 +343,7 @@ export interface Conversation {
   last_message: DirectMessage | null;
   last_message_at: string | null;
   unread_count: number;
+  peer_last_read_message_id: number | null;
   created_at: string;
 }
 
