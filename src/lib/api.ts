@@ -1,5 +1,6 @@
 import type {
   AchievementsResponse,
+  AttributesExplain,
   ChatMessage,
   ChatResponse,
   ChatStreamEvent,
@@ -245,6 +246,7 @@ export const api = {
   followList: (username: string, kind: FollowListKind) =>
     request<FollowUser[]>(`/follows/${encodeURIComponent(username)}/${kind}`),
   dashboard: () => request<Dashboard>("/dashboard"),
+  attributesExplain: () => request<AttributesExplain>("/dashboard/attributes/explain"),
   records: () => request<DailyRecord[]>("/records"),
   upsertRecord: (record: RecordInput) =>
     request<RecordSave>("/records", {

@@ -138,6 +138,36 @@ export interface Attributes {
   CHA: number;
 }
 
+export interface AttributeFactor {
+  key: string;
+  label: string;
+  unit: string | null;
+  avg: number | null;
+  weight: number | null;
+  contribution: number;
+  kind: "linear" | "bonus";
+  detail: string | null;
+  cap: number | null;
+}
+
+export interface AttributeExplanation {
+  key: AttributeKey;
+  label: string;
+  zh: string;
+  value: number;
+  base: number;
+  factors: AttributeFactor[];
+  source: "formula" | "social" | "proxy";
+  note: string | null;
+}
+
+export interface AttributesExplain {
+  attributes: AttributeExplanation[];
+  window_days: number;
+  record_count: number;
+  has_social: boolean;
+}
+
 export interface TodayStatus {
   score: number;
   tasks_completed: number;
