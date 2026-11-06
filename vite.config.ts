@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
       port: isDesktop ? 5173 : undefined,
       strictPort: isDesktop,
       proxy: {
-        "/api": "http://localhost:8000",
+        "/api": "http://127.0.0.1:8000",
       },
     },
     staged: {
